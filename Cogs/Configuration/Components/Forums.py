@@ -5,10 +5,6 @@ from utils.emojis import *
 from dotenv import load_dotenv
 
 load_dotenv()
-# Mongos = AsyncIOMotorClient(os.getenv("MONGO_URL"))
-# DB = Mongos["astro"]
-# Configuration = DB["Config"]
-# forumsconfig = DB["Forum Configuration"]
 
 
 class ForumsOptions(discord.ui.Select):
@@ -50,7 +46,7 @@ class ForumsOptions(discord.ui.Select):
                 if 20 <= len(embed.fields):
                     break
             if len(embed.fields) == 0:
-                embed.description == "> There are no custom commands!"
+                embed.description = "> There are no custom commands!"
 
             view = ForumManagent(self.author)
             await interaction.followup.send(view=view, embed=embed)
@@ -68,7 +64,7 @@ class ForumManagent(discord.ui.View):
                 description=f"{redx} **{interaction.user.display_name},** this is not your panel!",
                 color=discord.Colour.brand_red(),
             )
-            return await interaction.followup.send(embed=embed, ephemeral=True)        
+            return await interaction.followup.send(embed=embed, ephemeral=True)
         await interaction.response.send_modal(CreateForum(interaction.user))
 
     @discord.ui.button(emoji="<:Pen:1235001839036923996>")
@@ -78,11 +74,11 @@ class ForumManagent(discord.ui.View):
                 description=f"{redx} **{interaction.user.display_name},** this is not your panel!",
                 color=discord.Colour.brand_red(),
             )
-            return await interaction.followup.send(embed=embed, ephemeral=True)        
+            return await interaction.followup.send(embed=embed, ephemeral=True)
         view = discord.ui.View()
-        Forums = await interaction.client.db["Forum Configuration"].find({"guild_id": interaction.guild.id}).to_list(
-            length=None
-        )
+        Forums = await interaction.client.db["Forum Configuration"].find(
+            {"guild_id": interaction.guild.id}
+        ).to_list(length=None)
         Options = []
         for form in Forums:
             if any(option.label == form.get("name") for option in Options):
@@ -109,11 +105,11 @@ class ForumManagent(discord.ui.View):
                 description=f"{redx} **{interaction.user.display_name},** this is not your panel!",
                 color=discord.Colour.brand_red(),
             )
-            return await interaction.followup.send(embed=embed, ephemeral=True)        
+            return await interaction.followup.send(embed=embed, ephemeral=True)
         view = discord.ui.View()
-        Forums = await interaction.client.db["Forum Configuration"].find({"guild_id": interaction.guild.id}).to_list(
-            length=None
-        )
+        Forums = await interaction.client.db["Forum Configuration"].find(
+            {"guild_id": interaction.guild.id}
+        ).to_list(length=None)
         Options = []
         for form in Forums:
             if any(option.label == form.get("name") for option in Options):
@@ -238,8 +234,9 @@ async def FinalFunc(interaction: discord.Interaction, datad: dict):
 
         data = {
             "name": datad.get("name"),
-            "content": interaction.message.content,
+            "content": interaction.message.content,  # review if this line is needed.
             "creator": interaction.user.id,
+            "guild_id": interaction.guild.id,  # Added guild_id
             "embed": {
                 "title": embed.title,
                 "description": embed.description,
@@ -270,17 +267,28 @@ async def FinalFunc(interaction: discord.Interaction, datad: dict):
         if datad.get("ping"):
             data["role"] = datad["ping"]
 
-    result = await interaction.client.db["Forum Configuration"].update_one(
-        {"name": datad.get("name"), "guild_id": interaction.guild.id},
-        {"$set": data},
-        upsert=True,
-    )
-    await interaction.response.edit_message(
-        content=f"{tick} **{interaction.user.display_name},** success.",
-        view=None,
-        embed=None,
-    )
-
+        try:
+            result = await interaction.client.db["Forum Configuration"].update_one(
+                {"name": datad.get("name"), "guild_id": interaction.guild.id},
+                {"$set": data},
+                upsert=True,
+            )
+            await interaction.response.edit_message(
+                content=f"{tick} **{interaction.user.display_name},** success.",
+                view=None,
+                embed=None,
+            )
+        except Exception as e:
+            print(f"Error in FinalFunc: {e}")
+            await interaction.response.send_message(
+                content=f"{redx} **{interaction.user.display_name},** an error occurred.",
+                ephemeral=True,
+            )
+    else:
+        await interaction.response.send_message(
+            content=f"{redx} **{interaction.user.display_name},** an embed is required.",
+            ephemeral=True
+        )
 
 async def ForumsEmbed(interaction: discord.Interaction, embed: discord.Embed):
     embed.set_author(name=f"{interaction.guild.name}", icon_url=interaction.guild.icon)
